@@ -431,3 +431,8 @@ class RefSpace(Schema):
     def validate(self, value):
         context = {'refs': self.refs}
         return self.root_validator.validate(value, context)
+
+    def set_root_validator(self, root):
+        if root in self.refs:
+            self.root_validator = self.refs[root]
+        return self.root_validator
