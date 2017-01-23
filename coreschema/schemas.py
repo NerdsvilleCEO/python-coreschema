@@ -4,12 +4,12 @@ from coreschema.utils import uniq
 import re
 
 
-Error = namedtuple('Error', ['text', 'index'])
+Error = namedtuple('Error', ['text', 'index', 'err_context'])
 
 
-def push_index(errors, key):
+def push_index(errors, key, err_context=None):
     return [
-        Error(error.text, [key] + error.index)
+        Error(error.text, [key] + error.index, error.err_context)
         for error in errors
     ]
 
@@ -39,10 +39,10 @@ class Schema(object):
         self.description = description
         self.default = default
 
-    def make_error(self, code):
+    def make_error(self, code, err_context=None):
         error_string = self.errors[code]
         params = self.__dict__
-        return Error(error_string.format(**params), [])
+        return Error(error_string.format(**params), [], err_context)
 
     def __or__(self, other):
         if isinstance(self, Union):
@@ -398,12 +398,17 @@ class Union(Schema):
         super(Union, self).__init__(**kwargs)
 
         self.children = children
+        self.validation_errors = {child.title: [] for child in self.children};
+
 
     def validate(self, value, context=None):
         for child in self.children:
-            if child.validate(value, context) == []:
+            validation_res = child.validate(value, context)
+            if validation_res == []:
                 return []
-        return [self.make_error('match')]
+            else:
+                self.validation_errors[child.title] = validation_res
+        return [self.make_error('match', err_context=self.validation_errors)]
 
 
 class Ref(Schema):
